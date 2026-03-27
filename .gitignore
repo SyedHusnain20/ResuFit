@@ -1,0 +1,44 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual Environment ───────────────────────────────────────────────────────
+# Common venv folder names — none of these should be committed to Git
+venv/
+.venv/
+env/
+ENV/
+
+# ── Environment Variables ─────────────────────────────────────────────────────
+# NEVER commit .env files — they contain secrets like API keys
+.env
+.env.local
+.env.production
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ── IDEs & Editors ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store        # macOS folder metadata
+
+# ── Uploaded Files ────────────────────────────────────────────────────────────
+# If you ever temporarily save uploaded PDFs locally during development
+uploads/
+*.pdf
+
+# ── Render / Deployment ───────────────────────────────────────────────────────
+.render/

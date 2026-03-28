@@ -1,12 +1,16 @@
 """
 main.py — FastAPI Application Entry Point
 ─────────────────────────────────────────
-Registers middleware, global exception handlers, routers, and OpenAPI metadata.
+Serves both the REST API and the static HTML frontend.
 """
+
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
@@ -18,12 +22,10 @@ from app.exceptions import (
 )
 from app.middleware.logging import RequestLoggingMiddleware
 
-# ── Configure logging first ───────────────────────────────────────────────────
 configure_logging()
 
-# ── OpenAPI Tag Descriptions ──────────────────────────────────────────────────
-# These appear as section headers in the Swagger UI (/docs), making the API
-# self-documenting. Each tag groups related endpoints with a description.
+STATIC_DIR = Path(__file__).parent / "static"
+
 OPENAPI_TAGS = [
     {
         "name": "Analysis",
@@ -35,13 +37,12 @@ OPENAPI_TAGS = [
     {
         "name": "General",
         "description": (
-            "Health check and root endpoints. The `/health` endpoint is used by "
-            "Render for uptime monitoring and auto-restart on failure."
+            "Health check and root endpoints. `/health` is used by Render "
+            "for uptime monitoring."
         ),
     },
 ]
 
-# ── App Instance ──────────────────────────────────────────────────────────────
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -49,7 +50,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=OPENAPI_TAGS,
-    # Shown in Swagger UI header — links to your GitHub repo
     contact={
         "name": "ResuFit on GitHub",
         "url": "https://github.com/YOUR_USERNAME/resufit",
@@ -60,7 +60,7 @@ app = FastAPI(
     },
 )
 
-# ── Middleware ────────────────────────────────────────────────────────────────
+# ── Middleware ────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -70,49 +70,47 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware)
 
-# ── Global Exception Handlers ─────────────────────────────────────────────────
+# ── Exception Handlers ────────────────────────────────────────────────
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# ── API Routers ───────────────────────────────────────────────────────
 from app.routers import analyze
 app.include_router(analyze.router, prefix="/api/v1")
 
-# ── General Routes ────────────────────────────────────────────────────────────
+# ── Static Files ──────────────────────────────────────────────────────
+# Serves CSS, JS, images from /app/static/ at the /static URL path.
+# Must be mounted AFTER API routes so /api/v1/* routes take priority.
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-@app.get(
-    "/",
-    tags=["General"],
-    summary="API root — status and links",
-)
-def root():
+# ── Frontend Route ────────────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+def frontend():
     """
-    Returns the API name, version, current status, and a link to the
-    interactive documentation. Use this as a quick sanity check that
-    the service is running.
+    Serve the ResuFit web app.
+    include_in_schema=False hides this from the Swagger UI —
+    it's a page, not an API endpoint.
     """
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+# ── General API Routes ────────────────────────────────────────────────
+
+@app.get("/health", tags=["General"], summary="Health check")
+def health_check():
+    """Returns HTTP 200 when the service is healthy. Used by Render."""
+    return {"status": "ok"}
+
+
+@app.get("/api", tags=["General"], summary="API info")
+def api_info():
+    """Returns API metadata and links."""
     return {
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
         "docs": "/docs",
-        "health": "/health",
         "analyze": "/api/v1/analyze",
     }
-
-
-@app.get(
-    "/health",
-    tags=["General"],
-    summary="Health check for uptime monitoring",
-)
-def health_check():
-    """
-    Returns `{ "status": "ok" }` with HTTP 200 when the service is healthy.
-
-    **Used by Render** to verify the service is alive after every deploy.
-    If this endpoint doesn't return 200, Render will restart the service.
-    Also useful for external uptime monitors (UptimeRobot, Pingdom, etc.).
-    """
-    return {"status": "ok"}

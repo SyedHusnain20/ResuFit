@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResuFit — AI Resume Screener</title>
+
+  <!-- Fonts: Syne (display) + JetBrains Mono (data) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── CSS Variables ─────────────────────────────────────────────── */
+    :root {
+      --bg:          #080810;
+      --surface:     #0f0f1a;
+      --surface2:    #16162a;
+      --border:      #ffffff0f;
+      --border-glow: #00d4ff30;
+      --text:        #e8e8f0;
+      --text-muted:  #7070a0;
+      --accent:      #00d4ff;
+      --accent-dim:  #00d4ff20;
+      --green:       #00e5a0;
+      --green-dim:   #00e5a015;
+      --red:         #ff4d6d;
+      --red-dim:     #ff4d6d15;
+      --amber:       #ffb830;
+      --amber-dim:   #ffb83015;
+      --radius:      14px;
+      --radius-sm:   8px;
+    }
+
+    /* ── Reset & Base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ─────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Ambient glow blobs ────────────────────────────────────────── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 {
+      width: 600px; height: 600px;
+      background: #00d4ff08;
+      top: -200px; left: -150px;
+    }
+    .blob-2 {
+      width: 500px; height: 500px;
+      background: #7c3aed08;
+      bottom: -150px; right: -100px;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────── */
+    header {
+      padding: 48px 0 56px;
+      text-align: center;
+    }
+
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .hero-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(36px, 6vw, 58px);
+      line-height: 1.1;
+      letter-spacing: -2px;
+      margin-bottom: 16px;
+    }
+
+    .hero-title .accent {
+      background: linear-gradient(90deg, var(--accent), #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--text-muted);
+      font-weight: 300;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    /* ── Upload Card ───────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 16px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover { border-color: var(--border-glow); }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    /* ── Drop Zone ─────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent-dim);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+    }
+
+    .drop-zone:hover::before,
+    .drop-zone.drag-over::before { opacity: 1; }
+
+    .drop-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+      transition: transform 0.25s;
+    }
+
+    .drop-zone:hover .drop-icon { transform: translateY(-4px); }
+
+    .drop-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 6px;
+      position: relative;
+    }
+
+    .drop-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      position: relative;
+    }
+
+    .drop-sub span {
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    #fileInput { display: none; }
+
+    /* ── File Selected State ───────────────────────────────────────── */
+    .file-pill {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--green);
+      border-radius: 100px;
+      padding: 10px 18px;
+      margin-top: 14px;
+    }
+
+    .file-pill.visible { display: flex; }
+
+    .file-pill-icon { font-size: 18px; }
+
+    .file-pill-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--green);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .file-remove:hover { color: var(--red); }
+
+    /* ── Textarea ──────────────────────────────────────────────────── */
+    .textarea-wrap {
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      padding: 16px;
+      resize: vertical;
+      min-height: 160px;
+      outline: none;
+      transition: border-color 0.25s;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+    textarea:focus { border-color: var(--accent); }
+
+    .char-count {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ── Analyze Button ────────────────────────────────────────────── */
+    .btn-analyze {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 16px;
+      cursor: pointer;
+      margin-top: 16px;
+      position: relative;
+      overflow: hidden;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .btn-analyze:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn-analyze:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-analyze .btn-text { position: relative; z-index: 1; }
+
+    /* Shimmer on button */
+    .btn-analyze::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #ffffff20, transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-analyze:hover:not(:disabled)::after { left: 150%; }
+
+    /* Loading spinner */
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid #ffffff40;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    .btn-analyze.loading .btn-text { display: none; }
+    .btn-analyze.loading .spinner { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error Banner ──────────────────────────────────────────────── */
+    .error-banner {
+      display: none;
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      color: var(--red);
+      font-size: 14px;
+      margin-top: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .error-banner.visible { display: flex; gap: 10px; align-items: flex-start; }
+
+    /* ── Results Section ───────────────────────────────────────────── */
+    #results {
+      display: none;
+      animation: slideUp 0.5s ease forwards;
+    }
+
+    #results.visible { display: block; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* ── Score Hero ────────────────────────────────────────────────── */
+    .score-hero {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 32px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 560px) {
+      .score-hero { grid-template-columns: 1fr; text-align: center; }
+      .score-ring-wrap { margin: 0 auto; }
+    }
+
+    /* Circular Score Ring */
+    .score-ring-wrap {
+      position: relative;
+      width: 180px; height: 180px;
+    }
+
+    .score-ring-svg {
+      width: 100%; height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .score-ring-bg {
+      fill: none;
+      stroke: var(--surface2);
+      stroke-width: 10;
+    }
+
+    .score-ring-fill {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 502;
+      stroke-dashoffset: 502;
+      transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  stroke 0.5s ease;
+    }
+
+    .score-ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .score-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 38px;
+      font-weight: 700;
+      line-height: 1;
+      transition: color 0.5s;
+    }
+
+    .score-label-sm {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Verdict */
+    .verdict-block { }
+
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      margin-bottom: 14px;
+      border: 1.5px solid;
+    }
+
+    .verdict-badge.strong {
+      background: var(--green-dim);
+      color: var(--green);
+      border-color: var(--green);
+    }
+
+    .verdict-badge.partial {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .verdict-badge.weak {
+      background: var(--red-dim);
+      color: var(--red);
+      border-color: var(--red);
+    }
+
+    .verdict-advice {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    /* Signal Bars */
+    .signal-bars { display: flex; flex-direction: column; gap: 10px; }
+
+    .signal-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 52px;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .signal-name {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .signal-bar-bg {
+      background: var(--surface2);
+      border-radius: 100px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .signal-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .signal-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    /* ── Skills Grid ───────────────────────────────────────────────── */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) { .skills-grid { grid-template-columns: 1fr; } }
+
+    .skills-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .skills-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .skills-panel-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .skills-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-weight: 500;
+    }
+
+    .skills-count.green { background: var(--green-dim); color: var(--green); }
+    .skills-count.red   { background: var(--red-dim);   color: var(--red);   }
+    .skills-count.blue  { background: var(--accent-dim); color: var(--accent); }
+
+    .chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .chip {
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      border: 1px solid;
+      animation: fadeIn 0.3s ease both;
+    }
+
+    .chip.green  { background: var(--green-dim); color: var(--green); border-color: #00e5a030; }
+    .chip.red    { background: var(--red-dim);   color: var(--red);   border-color: #ff4d6d30; }
+    .chip.blue   { background: var(--accent-dim); color: var(--accent); border-color: #00d4ff30; }
+
+    .empty-state {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* ── Metadata Bar ──────────────────────────────────────────────── */
+    .meta-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .meta-item { display: flex; flex-direction: column; gap: 3px; }
+
+    .meta-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .meta-key {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Reset Button ──────────────────────────────────────────────── */
+    .btn-reset {
+      width: 100%;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      padding: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 4px;
+    }
+
+    .btn-reset:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Footer ────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding-top: 32px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Staggered chip animation ──────────────────────────────────── */
+    .chip:nth-child(1)  { animation-delay: 0.05s }
+    .chip:nth-child(2)  { animation-delay: 0.10s }
+    .chip:nth-child(3)  { animation-delay: 0.15s }
+    .chip:nth-child(4)  { animation-delay: 0.20s }
+    .chip:nth-child(5)  { animation-delay: 0.25s }
+    .chip:nth-child(6)  { animation-delay: 0.30s }
+    .chip:nth-child(7)  { animation-delay: 0.35s }
+    .chip:nth-child(8)  { animation-delay: 0.40s }
+    .chip:nth-child(9)  { animation-delay: 0.45s }
+    .chip:nth-child(10) { animation-delay: 0.50s }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <div class="wrapper">
+
+    <!-- ── Header ─────────────────────────────────────────────────── -->
+    <header>
+      <div class="logo-mark">
+        <div class="logo-icon">🎯</div>
+        <span class="logo-text">ResuFit</span>
+      </div>
+      <h1 class="hero-title">
+        Screen resumes with<br/>
+        <span class="accent">AI precision</span>
+      </h1>
+      <p class="hero-sub">
+        Upload a resume PDF and paste a job description.
+        Get a fit score, matched skills, and a hiring verdict in seconds.
+      </p>
+    </header>
+
+    <!-- ── Upload Form ─────────────────────────────────────────────── -->
+    <div id="uploadSection">
+
+      <!-- PDF Upload -->
+      <div class="card">
+        <div class="section-label">01 — Resume PDF</div>
+
+        <div class="drop-zone" id="dropZone">
+          <span class="drop-icon">📄</span>
+          <div class="drop-title">Drop your resume here</div>
+          <div class="drop-sub">
+            or <span onclick="document.getElementById('fileInput').click()">browse files</span>
+            &nbsp;·&nbsp; PDF only &nbsp;·&nbsp; max 5 MB
+          </div>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" />
+        </div>
+
+        <div class="file-pill" id="filePill">
+          <span class="file-pill-icon">✅</span>
+          <span class="file-pill-name" id="fileName">resume.pdf</span>
+          <button class="file-remove" id="fileRemove" title="Remove file">×</button>
+        </div>
+      </div>
+
+      <!-- Job Description -->
+      <div class="card">
+        <div class="section-label">02 — Job Description</div>
+        <div class="textarea-wrap">
+          <textarea
+            id="jobDesc"
+            placeholder="Paste the full job description here...&#10;&#10;e.g. We are looking for a Python Backend Engineer with experience in FastAPI, Docker, and AWS..."
+          ></textarea>
+          <div class="char-count" id="charCount">0 chars</div>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-banner" id="errorBanner">
+        <span>⚠️</span>
+        <span id="errorText">Something went wrong.</span>
+      </div>
+
+      <!-- Submit -->
+      <button class="btn-analyze" id="analyzeBtn" disabled>
+        <span class="btn-text">Analyze Resume →</span>
+        <div class="spinner"></div>
+      </button>
+
+    </div><!-- /uploadSection -->
+
+    <!-- ── Results ─────────────────────────────────────────────────── -->
+    <div id="results">
+
+      <!-- Score hero -->
+      <div class="card">
+        <div class="section-label">Analysis Results</div>
+        <div class="score-hero">
+
+          <!-- Ring -->
+          <div class="score-ring-wrap">
+            <svg class="score-ring-svg" viewBox="0 0 180 180">
+              <circle class="score-ring-bg" cx="90" cy="90" r="80" />
+              <circle class="score-ring-fill" id="ringFill" cx="90" cy="90" r="80" />
+            </svg>
+            <div class="score-ring-text">
+              <div class="score-number" id="scoreNumber">0%</div>
+              <div class="score-label-sm">Fit Score</div>
+            </div>
+          </div>
+
+          <!-- Verdict + bars -->
+          <div class="verdict-block">
+            <div class="verdict-badge" id="verdictBadge">
+              <span id="verdictIcon">●</span>
+              <span id="verdictText">—</span>
+            </div>
+            <div class="verdict-advice" id="verdictAdvice"></div>
+
+            <div class="signal-bars">
+              <div class="signal-row">
+                <div class="signal-name">Skill Match</div>
+                <div class="signal-bar-bg">
+                  <div class="signal-bar-fill" id="skillBar"
+                       style="background: var(--green)"></div>
+                </div>
+                <div class="signal-val" id="skillVal">0%</div>
+              </div>
+              <div class="signal-row">
+                <div class="signal-name">TF-IDF</div>
+                <div class="signal-bar-bg">
+                  <div class="signal-bar-fill" id="tfidfBar"
+                       style="background: var(--accent)"></div>
+                </div>
+                <div class="signal-val" id="tfidfVal">0%</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="meta-bar">
+        <div class="meta-item">
+          <div class="meta-val" id="metaResSkills">—</div>
+          <div class="meta-key">Resume Skills</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-val" id="metaJdSkills">—</div>
+          <div class="meta-key">JD Skills</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-val" id="metaTextLen">—</div>
+          <div class="meta-key">Chars Extracted</div>
+        </div>
+      </div>
+
+      <!-- Skills breakdown -->
+      <div class="skills-grid">
+
+        <!-- Matched -->
+        <div class="skills-panel">
+          <div class="skills-panel-header">
+            <div class="skills-panel-title">✅ Matched</div>
+            <div class="skills-count green" id="matchedCount">0</div>
+          </div>
+          <div class="chips-wrap" id="matchedChips"></div>
+        </div>
+
+        <!-- Missing -->
+        <div class="skills-panel">
+          <div class="skills-panel-header">
+            <div class="skills-panel-title">❌ Missing</div>
+            <div class="skills-count red" id="missingCount">0</div>
+          </div>
+          <div class="chips-wrap" id="missingChips"></div>
+        </div>
+
+      </div>
+
+      <!-- Extra skills (full width) -->
+      <div class="card">
+        <div class="skills-panel-header">
+          <div class="skills-panel-title">➕ Extra Skills on Resume</div>
+          <div class="skills-count blue" id="extraCount">0</div>
+        </div>
+        <div class="chips-wrap" id="extraChips"></div>
+      </div>
+
+      <!-- Reset -->
+      <button class="btn-reset" id="resetBtn">← Analyze Another Resume</button>
+
+    </div><!-- /results -->
+
+    <!-- ── Footer ──────────────────────────────────────────────────── -->
+    <footer>
+      <p>
+        ResuFit v1.0 &nbsp;·&nbsp;
+        Built with FastAPI + scikit-learn &nbsp;·&nbsp;
+        <a href="/docs" target="_blank">API Docs →</a>
+      </p>
+    </footer>
+
+  </div><!-- /wrapper -->
+
+  <script>
+    // ── Element refs ──────────────────────────────────────────────────
+    const dropZone    = document.getElementById('dropZone');
+    const fileInput   = document.getElementById('fileInput');
+    const filePill    = document.getElementById('filePill');
+    const fileName    = document.getElementById('fileName');
+    const fileRemove  = document.getElementById('fileRemove');
+    const jobDesc     = document.getElementById('jobDesc');
+    const charCount   = document.getElementById('charCount');
+    const analyzeBtn  = document.getElementById('analyzeBtn');
+    const errorBanner = document.getElementById('errorBanner');
+    const errorText   = document.getElementById('errorText');
+    const uploadSec   = document.getElementById('uploadSection');
+    const results     = document.getElementById('results');
+    const resetBtn    = document.getElementById('resetBtn');
+
+    let selectedFile = null;
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function setFile(file) {
+      if (!file || file.type !== 'application/pdf') {
+        showError('Please upload a PDF file.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showError('File exceeds 5 MB limit. Please upload a smaller PDF.');
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name;
+      filePill.classList.add('visible');
+      hideError();
+      updateBtn();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      filePill.classList.remove('visible');
+      updateBtn();
+    }
+
+    function updateBtn() {
+      const jdLen = jobDesc.value.trim().length;
+      analyzeBtn.disabled = !(selectedFile && jdLen >= 50);
+    }
+
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorBanner.classList.add('visible');
+    }
+
+    function hideError() {
+      errorBanner.classList.remove('visible');
+    }
+
+    // ── Drag & Drop ───────────────────────────────────────────────────
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    fileRemove.addEventListener('click', clearFile);
+
+    // ── Char counter ──────────────────────────────────────────────────
+    jobDesc.addEventListener('input', () => {
+      const n = jobDesc.value.length;
+      charCount.textContent = `${n} char${n !== 1 ? 's' : ''}`;
+      updateBtn();
+    });
+
+    // ── Submit ────────────────────────────────────────────────────────
+    analyzeBtn.addEventListener('click', async () => {
+      hideError();
+      analyzeBtn.classList.add('loading');
+      analyzeBtn.disabled = true;
+
+      const form = new FormData();
+      form.append('resume', selectedFile);
+      form.append('job_description', jobDesc.value.trim());
+
+      try {
+        const res  = await fetch('/api/v1/analyze', { method: 'POST', body: form });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.detail || `Error ${res.status}`);
+          analyzeBtn.classList.remove('loading');
+          analyzeBtn.disabled = false;
+          return;
+        }
+
+        renderResults(data);
+
+      } catch (err) {
+        showError('Network error — is the server running?');
+        analyzeBtn.classList.remove('loading');
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    // ── Render Results ────────────────────────────────────────────────
+    function renderResults(d) {
+      // Hide form, show results
+      uploadSec.style.display = 'none';
+      results.classList.add('visible');
+
+      // Animate score ring
+      const pct       = d.fit_percentage;
+      const circumf   = 2 * Math.PI * 80;   // 502.65...
+      const offset    = circumf - (pct / 100) * circumf;
+      const ringFill  = document.getElementById('ringFill');
+      const scoreNum  = document.getElementById('scoreNumber');
+
+      // Choose color based on verdict
+      const color = d.verdict === 'Strong Fit' ? 'var(--green)'
+                  : d.verdict === 'Partial Fit' ? 'var(--amber)'
+                  : 'var(--red)';
+
+      ringFill.style.stroke = color;
+      scoreNum.style.color  = color;
+
+      // Animate dashoffset (ring fills up)
+      requestAnimationFrame(() => {
+        ringFill.style.strokeDashoffset = offset;
+      });
+
+      // Animate percentage counter
+      animateCounter(scoreNum, 0, Math.round(pct), 1400, v => v + '%');
+
+      // Verdict badge
+      const badge = document.getElementById('verdictBadge');
+      badge.className = 'verdict-badge ' +
+        (d.verdict === 'Strong Fit' ? 'strong'
+       : d.verdict === 'Partial Fit' ? 'partial'
+       : 'weak');
+
+      document.getElementById('verdictIcon').textContent =
+        d.verdict === 'Strong Fit' ? '✅'
+      : d.verdict === 'Partial Fit' ? '🟡'
+      : '❌';
+
+      document.getElementById('verdictText').textContent  = d.verdict;
+      document.getElementById('verdictAdvice').textContent = d.advice;
+
+      // Signal bars
+      setTimeout(() => {
+        document.getElementById('skillBar').style.width =
+          (d.skill_score * 100).toFixed(1) + '%';
+        document.getElementById('tfidfBar').style.width =
+          (d.tfidf_score * 100).toFixed(1) + '%';
+      }, 100);
+
+      document.getElementById('skillVal').textContent =
+        (d.skill_score * 100).toFixed(1) + '%';
+      document.getElementById('tfidfVal').textContent =
+        (d.tfidf_score * 100).toFixed(1) + '%';
+
+      // Metadata
+      document.getElementById('metaResSkills').textContent = d.resume_skill_count;
+      document.getElementById('metaJdSkills').textContent  = d.jd_skill_count;
+      document.getElementById('metaTextLen').textContent   =
+        d.resume_text_length.toLocaleString();
+
+      // Skills chips
+      renderChips('matchedChips', 'matchedCount', d.matched_skills, 'green');
+      renderChips('missingChips', 'missingCount', d.missing_skills, 'red');
+      renderChips('extraChips',   'extraCount',   d.extra_skills,   'blue');
+
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Re-enable analyze btn (for reset flow)
+      analyzeBtn.classList.remove('loading');
+    }
+
+    function renderChips(wrapperId, countId, skills, colorClass) {
+      const wrap  = document.getElementById(wrapperId);
+      const count = document.getElementById(countId);
+      count.textContent = skills.length;
+      wrap.innerHTML = '';
+      if (skills.length === 0) {
+        wrap.innerHTML = '<span class="empty-state">None detected</span>';
+        return;
+      }
+      skills.forEach(skill => {
+        const chip = document.createElement('div');
+        chip.className = `chip ${colorClass}`;
+        chip.textContent = skill;
+        wrap.appendChild(chip);
+      });
+    }
+
+    function animateCounter(el, from, to, duration, format = v => v) {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3); // ease-out-cubic
+        el.textContent = format(Math.round(from + (to - from) * ease));
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────────
+    resetBtn.addEventListener('click', () => {
+      results.classList.remove('visible');
+      uploadSec.style.display = 'block';
+
+      // Reset ring
+      document.getElementById('ringFill').style.strokeDashoffset = 502;
+      document.getElementById('scoreNumber').textContent = '0%';
+
+      // Reset bars
+      document.getElementById('skillBar').style.width = '0%';
+      document.getElementById('tfidfBar').style.width = '0%';
+
+      clearFile();
+      analyzeBtn.disabled = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+</body>
+</html>

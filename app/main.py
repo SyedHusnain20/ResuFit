@@ -52,7 +52,7 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
     contact={
         "name": "ResuFit on GitHub",
-        "url": "https://github.com/YOUR_USERNAME/resufit",
+        "url": "https://github.com/SyedHusnain20/ResuFit.git",
     },
     license_info={
         "name": "MIT License",

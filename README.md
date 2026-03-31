@@ -1,3 +1,11 @@
+---
+title: ResuFit
+emoji: 🎯
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+---
 # ResuFit 🎯
 ### AI-Powered Resume Screening API
 

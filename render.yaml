@@ -1,0 +1,45 @@
+# render.yaml — Render Deployment Configuration
+#
+# This file tells Render exactly how to build and run ResuFit.
+# Render reads this file automatically when you connect your GitHub repo.
+#
+# WHY render.yaml instead of clicking through the Render dashboard?
+#   Infrastructure-as-code: your deployment config lives in version control
+#   alongside your code. If you ever need to redeploy from scratch, everything
+#   is already defined here — no clicking through dashboards.
+
+services:
+  - type: web                        # A web service (HTTP server)
+    name: resufit                    # Name shown in your Render dashboard
+    runtime: python                  # Python runtime
+    region: oregon                   # US West — change to "frankfurt" if you're in EU
+
+    # ── Build ──────────────────────────────────────────────────────────
+    # Render runs this once during deployment to install dependencies.
+    buildCommand: pip install -r requirements.txt
+
+    # ── Start ──────────────────────────────────────────────────────────
+    # Render runs this to start your server.
+    # --host 0.0.0.0 binds to all interfaces (required on Render)
+    # --port $PORT   Render injects the PORT env var automatically
+    # --workers 2    Two worker processes for handling concurrent requests
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+
+    # ── Plan ───────────────────────────────────────────────────────────
+    # "free" gives you a live public URL at no cost.
+    # Note: free tier spins down after 15 min of inactivity.
+    # First request after spin-down takes ~30 seconds (cold start).
+    # Upgrade to "starter" ($7/mo) for always-on if needed.
+    plan: free
+
+    # ── Health Check ───────────────────────────────────────────────────
+    # Render pings this endpoint after deploy to verify the app started.
+    # Our /health route returns {"status": "ok"} — exactly what Render expects.
+    healthCheckPath: /health
+
+    # ── Environment Variables ──────────────────────────────────────────
+    # Add secrets (API keys, DB URLs) here or in the Render dashboard.
+    # Never commit real secrets to this file.
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10.0"

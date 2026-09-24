@@ -256,4 +256,14 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
+## Contact
+
+**Engr. Hasnain Zainulabdin**
+R&R Digital Solutions
+
+Contact: 03126641281 | [HasnainZainulabdin@gmail.com](mailto:HasnainZainulabdin@gmail.com)
+Website: https://hasnainzainulabdin.vercel.app/
+
+---
+
 *Built as a portfolio project demonstrating AI/ML API development with Python and FastAPI.*
